@@ -14,5 +14,5 @@
 	            <Column name='PROVINCE_NAME' />
 	        </JoinTable>
 	    </Join>
-	 </Joins>
+	</Joins>
 
