@@ -1,0 +1,111 @@
+diff -Naur src/main/java/mondrian/rolap/sql/SqlQuery.java /home/weiy/project/mondrian-4.4/src/main/java/mondrian/rolap/sql/SqlQuery.java
+--- src/main/java/mondrian/rolap/sql/SqlQuery.java	2016-11-25 10:03:55.000000000 +0800
++++ /home/weiy/project/mondrian-4.4/src/main/java/mondrian/rolap/sql/SqlQuery.java	2017-01-10 16:29:37.221645480 +0800
+@@ -101,8 +101,6 @@
+ 
+     private Map<String, String> joinInfoMap = null;
+ 
+-    private String joinType = new String();
+-
+     /** The SQL dialect this query is to be generated in. */
+     private final Dialect dialect;
+ 
+@@ -379,8 +377,6 @@
+                 ? table.getAlias()
+                 : alias;
+             joinInfoMap = ((RolapSchema.PhysTable) relation).getJoinInfoMap();
+-            if(joinInfoMap.containsKey(joinCondition))
+-                joinType = joinInfoMap.get(joinCondition);
+             return addFromTable(
+                 table.getSchemaName(),
+                 table.getName(),
+@@ -587,14 +583,16 @@
+         final String first = distinct ? "select distinct " : "select ";
+         select.toBuffer(buf, generateFormattedSql, prefix, first, ", ", "", "");
+         groupingFunctionsToBuffer(buf, prefix);
+-        String fromSep = joinCount > 0 ? " " + joinType + " join " : ", ";
++        String fromSep = joinCount > 0 ? " " : ", ";
+         if (dialect.allowsJoinOn() && from.size() > 1) {
+             if (joinCount <= 0) {
+                 throw new AssertionError();
+             }
+         }
++//        from.toBuffer(
++//                buf, generateFormattedSql, prefix, " from ", fromSep, "", "");
+         from.toBuffer(
+-            buf, generateFormattedSql, prefix, " from ", fromSep, "", "");
++                buf, generateFormattedSql, prefix, " from ", fromSep, "", "", joinInfoMap);
+         where.toBuffer(
+             buf, generateFormattedSql, prefix, " where ", " and ", "", "");
+         if (groupingSets.isEmpty()) {
+@@ -796,7 +794,7 @@
+          *
+          * @param element Element to add
+          * @return whether element was added, per
+-         * {@link java.util.Collection#add(Object)}
++         * {@link Collection#add(Object)}
+          */
+         public boolean add(final String element) {
+             if (allowDups || !contains(element)) {
+@@ -823,6 +821,25 @@
+             toBuffer(buf, first, sep, last);
+         }
+ 
++        final void toBuffer(
++                StringBuilder buf,
++                boolean generateFormattedSql,
++                String prefix,
++                String first,
++                String sep,
++                String last,
++                String empty,
++                Map<String, String> joinInfoMap)
++        {
++            if (isEmpty()) {
++                buf.append(empty);
++                return;
++            }
++            first = foo(generateFormattedSql, prefix, first);
++            sep = foo(generateFormattedSql, prefix, sep);
++            toBuffer(buf, first, sep, last, joinInfoMap);
++        }
++
+         static String foo(
+             boolean generateFormattedSql,
+             String prefix,
+@@ -847,6 +864,35 @@
+         }
+ 
+         final void toBuffer(
++                final StringBuilder buf,
++                final String first,
++                final String sep,
++                final String last,
++                final Map<String, String> joinInfoMap)
++        {
++            int n = 0;
++            buf.append(first);
++            for (String s : this) {
++                if (n++ > 0) {
++                    buf.append(sep);
++                }
++                buf.append(getJoinType(s, joinInfoMap)).append(s);
++            }
++            buf.append(last);
++        }
++
++        static String getJoinType(String fromCondition, Map<String, String> joinInfoMap){
++            String type = "";
++            for(String key : joinInfoMap.keySet()){
++                if(fromCondition.indexOf(key) != -1){
++                    type = joinInfoMap.get(key) + " join ";
++                    break;
++                }
++            }
++            return type;
++        }
++
++        final void toBuffer(
+             final StringBuilder buf,
+             final String first,
+             final String sep,
